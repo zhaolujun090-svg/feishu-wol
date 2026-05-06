@@ -2,21 +2,30 @@
 chcp 65001 >nul
 title Install Hermes Wake Service
 
+REM Check admin
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Right-click and select "Run as Administrator"
+    pause
+    exit /b 1
+)
+
 echo ============================================
 echo   Install Hermes Auto-Wake Monitor
 echo ============================================
 echo.
 
-REM 1. Set 15-min sleep
-echo [1/3] Setting 15-min auto sleep...
-powercfg /change standby-timeout-ac 15
-powercfg /change hibernate-timeout-ac 0
-powercfg /change wake-timer-ac 1
+echo [1/3] Setting sleep and power options...
+REM Try both S3 and Modern Standby settings
+powercfg /change standby-timeout-ac 15 >nul 2>&1
+powercfg /change sleep-timeout-ac 15 >nul 2>&1
+powercfg /change hibernate-timeout-ac 0 >nul 2>&1
+powercfg /change monitor-timeout-ac 10 >nul 2>&1
+powercfg /change wake-timer-ac 1 >nul 2>&1
+powercfg /h off >nul 2>&1
 echo    OK
 
-REM 2. Create scheduled task with wake support
-echo [2/3] Creating wake-up task...
-
+echo [2/3] Creating wake-up task (every 2 min)...
 powershell -Command ^
   "unregister-scheduledtask -taskname 'HermesWakeCheck' -confirm:$false 2>$null;" ^
   "$action = New-ScheduledTaskAction -Execute '%~dp0hermes_wake_check.bat';" ^
@@ -26,21 +35,19 @@ powershell -Command ^
   "Register-ScheduledTask 'HermesWakeCheck' -InputObject $task -Force | out-null;" ^
   "Write-Output 'OK'"
 
-echo.
-
-REM 3. Firewall
 echo [3/3] Configuring firewall...
 netsh advfirewall firewall add rule name="WOL-UDP-9" protocol=udp localport=9 dir=in action=allow >nul 2>&1
 echo    OK
 
 echo.
 echo ============================================
-echo   Done! Your PC will now:
-echo   - Auto-sleep after 15 min idle
-echo   - Wake every 2 min to check Feishu
-echo   - Stay awake if message found
-echo   - Sleep again if nothing new
+echo   Done!
 echo.
-echo   Just use Feishu normally.
+echo   - PC sleeps after 15 min idle
+echo   - Wakes every 2 min to check Feishu
+echo   - Message found = stays awake
+echo   - No message = sleeps again
+echo.
+echo   Just chat normally with Feishu.
 echo ============================================
 pause
