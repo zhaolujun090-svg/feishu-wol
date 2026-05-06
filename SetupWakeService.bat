@@ -14,10 +14,17 @@ powercfg /change hibernate-timeout-ac 0
 powercfg /change wake-timer-ac 1
 echo    OK
 
-REM 2. Create scheduled task (wakes every 2 min)
-echo [2/3] Creating wake-up task (every 2 minutes)...
+REM 2. Create scheduled task with wake support
+echo [2/3] Creating wake-up task...
 
-powershell -Command "$action = New-ScheduledTaskAction -Execute '%~dp0hermes_wake_check.bat'; $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 2) -RepetitionDuration ([TimeSpan]::MaxValue); $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -WakeToRun -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 1); $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings; Register-ScheduledTask 'HermesWakeCheck' -InputObject $task -Force; Write-Output 'OK'"
+powershell -Command ^
+  "unregister-scheduledtask -taskname 'HermesWakeCheck' -confirm:$false 2>$null;" ^
+  "$action = New-ScheduledTaskAction -Execute '%~dp0hermes_wake_check.bat';" ^
+  "$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval ([TimeSpan]'00:02:00') -RepetitionDuration ([TimeSpan]'365.00:00:00');" ^
+  "$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -WakeToRun -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]'00:01:00');" ^
+  "$task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings;" ^
+  "Register-ScheduledTask 'HermesWakeCheck' -InputObject $task -Force | out-null;" ^
+  "Write-Output 'OK'"
 
 echo.
 
@@ -28,14 +35,12 @@ echo    OK
 
 echo.
 echo ============================================
-echo   Done!
+echo   Done! Your PC will now:
+echo   - Auto-sleep after 15 min idle
+echo   - Wake every 2 min to check Feishu
+echo   - Stay awake if message found
+echo   - Sleep again if nothing new
 echo.
-echo   How it works:
-echo   - PC auto-sleeps after 15 min idle
-echo   - Wakes up every 2 minutes to check Feishu
-echo   - If message arrived - keeps PC awake, Hermes replies
-echo   - If no message - goes back to sleep
-echo.
-echo   Just chat normally, no extra steps needed.
+echo   Just use Feishu normally.
 echo ============================================
 pause
